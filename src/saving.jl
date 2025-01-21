@@ -444,6 +444,33 @@ function LinearizingSavingCallback(ils::IndependentlyLinearizedSolution{T, S};
 end
 
 
-# Test if pushing to main repository works
+mutable struct CheckpointCaller
+    iter::Int
+    trigger_func::Function
+end
 
-export SavingCallback, SavedValues, LinearizingSavingCallback
+
+function (cc::CheckpointCaller)(u, t, integrator)
+    cc.iter += 1
+    if cc.trigger_func(cc.iter)
+        return true
+    end
+    return false
+end
+
+
+function CheckpointSavingCallback(trigger_func=(iter)->true)
+
+    checkpoint_caller = CheckpointCaller(0, trigger_func)    
+
+    affect!(integrator) = SciMLBase.savevalues!(integrator)
+
+    return DiscreteCallback(
+        checkpoint_caller,
+        affect!;
+        save_positions = (false, false)
+    )
+end
+
+
+export SavingCallback, SavedValues, LinearizingSavingCallback, CheckpointSavingCallback

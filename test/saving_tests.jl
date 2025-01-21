@@ -121,6 +121,14 @@ sol = solve(prob, Tsit5(), callback = cb)
 @test length(saved_values.t) == 1
 @test saved_values.t[1] == 1.0
 
+# AD checkpointing callback
+prob = prob_ode_linear
+checkpoint_cb = CheckpointSavingCallback()
+sol = solve(prob, Tsit5(), callback = checkpoint_cb)
+@test all(idx -> saveat[idx] == saved_values.t[idx], eachindex(saved_values.t))
+@test all(idx -> norm(sol(saveat[idx]) - saved_values.saveval[idx]) < 8.e-15,
+    eachindex(saved_values.t))
+
 # Tracker with Saving Callback
 ## This is pretty much a hack. It has been merged into DistributionsAD master
 Base.prevfloat(r::Tracker.TrackedReal) = Tracker.track(prevfloat, r)
@@ -241,4 +249,5 @@ if VERSION >= v"1.9" # stack
 
     # We do not support 2d states yet.
     #test_linearization(prob_ode_2Dlinear, Tsit5())
+
 end
