@@ -121,13 +121,16 @@ sol = solve(prob, Tsit5(), callback = cb)
 @test length(saved_values.t) == 1
 @test saved_values.t[1] == 1.0
 
-# AD checkpointing callback
-prob = prob_ode_linear
+# LogarithmicCheckpointCaller
+prob = remake(prob_ode_linear, tspan = (0.0, 10.0))
+dense_sol = solve(prob, Tsit5(), dense = true)
+logarithmic_indices = [2^i for i in 0:Int(floor(sqrt(length(dense_sol))))]
+
 checkpoint_cb = CheckpointSavingCallback()
-sol = solve(prob, Tsit5(), callback = checkpoint_cb)
-@test all(idx -> saveat[idx] == saved_values.t[idx], eachindex(saved_values.t))
-@test all(idx -> norm(sol(saveat[idx]) - saved_values.saveval[idx]) < 8.e-15,
-    eachindex(saved_values.t))
+logarithmic_sol = solve(prob, Tsit5(), callback = checkpoint_cb, save_everystep = false)
+@test logarithmic_sol.t == dense_sol.t[logarithmic_indices]
+@test logarithmic_sol.u == dense_sol.u[logarithmic_indices]
+
 
 # Tracker with Saving Callback
 ## This is pretty much a hack. It has been merged into DistributionsAD master

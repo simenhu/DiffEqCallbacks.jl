@@ -444,29 +444,50 @@ function LinearizingSavingCallback(ils::IndependentlyLinearizedSolution{T, S};
 end
 
 
-mutable struct CheckpointCaller
-    iter::Int
-    trigger_func::Function
+"""
+    LogarithmicCheckpointCaller
+
+Struct that keeps track of the current iteration and a trigger function for controlling checkpoints.
+
+# Fields:
+- `iter::Int`: Current iteration of the solve
+- `trigger_func::Function`: Next step to trigger a checkpoint
+"""
+mutable struct LogarithmicCheckpointCaller
+    next_iter::Int
+    current_iter::Int
+    function LogarithmicCheckpointCaller()
+        new(1, 0)
+    end
 end
 
 
-function (cc::CheckpointCaller)(u, t, integrator)
-    cc.iter += 1
-    if cc.trigger_func(cc.iter)
+function (cc::LogarithmicCheckpointCaller)(u, t, integrator)
+    cc.current_iter += 1
+    println("Current iteration: ", cc.current_iter)
+    if cc.current_iter == cc.next_iter
+        println("Checkpoint at iteration: ", cc.current_iter)
+        cc.next_iter *= 2
         return true
     end
     return false
 end
 
 
-function CheckpointSavingCallback(trigger_func=(iter)->true)
+"""
+    CheckpointSavingCallback(trigger_func)
 
-    checkpoint_caller = CheckpointCaller(0, trigger_func)    
+Callback that saves state of simulation at certain iterations. Defaults to LogarithmicCheckpointCaller which saves at 2^i iterations.
+
+# Arguments:
+- `trigger_func(u, t, integrator)`: Function that returns `true` if a checkpoint should be saved at the current iteration.
+"""
+function CheckpointSavingCallback(trigger_func=LogarithmicCheckpointCaller())    
 
     affect!(integrator) = SciMLBase.savevalues!(integrator)
 
     return DiscreteCallback(
-        checkpoint_caller,
+        trigger_func,
         affect!;
         save_positions = (false, false)
     )
